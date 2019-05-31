@@ -1,0 +1,30 @@
+{
+  "name": "greenhouse-data-migration",
+  "version": "0.0.1",
+  "description": "Data migration tool to automatically download greenhouse.io data",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "greenhouse": "./index.js"
+  },
+  "keywords": [
+    "greenhouse",
+    "data",
+    "migration",
+    "tool"
+  ],
+  "author": "kmturley",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^2.4.2",
+    "co": "^4.6.0",
+    "co-prompt": "^1.0.0",
+    "commander": "^2.19.0",
+    "json2csv": "^4.3.3",
+    "mkdirp": "^0.5.1",
+    "request": "^2.88.0",
+    "request-promise": "^4.2.2"
+  }
+}
