@@ -23,7 +23,6 @@ const endpoints = [
   'jobs',
   'offers',
   'offices',
-  'prospect_pools',
   'rejection_reasons',
   'scheduled_interviews',
   'scorecards',
@@ -44,12 +43,28 @@ function failure(msg) {
   process.exit(0);
 }
 
-function download(type) {
-  api.get(`${api.getAPI()}/${type}/`).then((data) => {
-    // console.log(type, data);
-    type = type.replace('/', '-');
-    api.toJSON(`data/${type}.json`, data, (path) => {
-      // success(`Created file: ${path}`);
+function download(urls) {
+  return new Promise((resolve, reject) => {
+    const promises = [];
+    urls.forEach((url) => {
+      promises.push(api.get(`${api.getAPI()}/${url}/`));
+    });
+    Promise.all(promises).then((urlItems) => {
+      resolve(urlItems);
+    });
+  });
+}
+
+function save(urls, urlItems) {
+  return new Promise((resolve, reject) => {
+    const promises = [];
+    urlItems.forEach((urlItem, urlItemIndex) => {
+      const url = urls[urlItemIndex];
+      const slug = url.replace('/', '-');
+      promises.push(api.toJSON(`data/${slug}.json`, urlItem));
+    });
+    Promise.all(promises).then((fileItems) => {
+      resolve(fileItems);
     });
   });
 }
@@ -64,13 +79,12 @@ program
         if (action === 'download') {
           // const type = program.type ? program.type : yield prompt('Type: ');
           const type = program.type;
-          if (type === 'all') {
-            endpoints.forEach((endpoint) => {
-              download(endpoint);
+          const urls = type === 'all' ? endpoints : [type];
+          download(urls).then((urlItems) => {
+            save(urls, urlItems).then((fileItems) => {
+              success(`Downloaded: ${urlItems.length}, Saved: ${fileItems.length}`);
             });
-          } else {
-            download(type);
-          }
+          });
         } else {
           failure(`Error command not recognized`);
         }

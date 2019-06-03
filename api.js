@@ -44,22 +44,24 @@ exports.post = function(url, params) {
 };
 
 exports.toCSV = function(dataset) {
-  console.log('api.toCSV', dataset.length);
   var headers = Object.keys(dataset[0]);
   try {
+    console.log('api.toCSV', dataset.length);
     return json2csv(dataset, { headers });
   } catch (error) {
     console.error(error);
   }
 };
 
-exports.toJSON = function(path, data, callback) {
-  console.log('toJSON', path);
-  fs.writeFile(path, JSON.stringify(data, null, 4), 'utf8', (error) => {
-    if (error) {
-      console.error(error);
-    } else{
-      callback(path);
-    }
+exports.toJSON = function(path, data) {
+  return new Promise((resolve, reject) => {
+    fs.writeFile(path, JSON.stringify(data, null, 4), 'utf8', (error) => {
+      if (error) {
+        reject(error);
+      } else {
+        console.log('api.toJSON', path);
+        resolve(path);
+      }
+    });
   });
 }
