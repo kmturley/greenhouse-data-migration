@@ -82,6 +82,10 @@ If you hit rate limits, you can adjust per_page and page url params:
 
     greenhouse download --type "applications?page=1&per_page=500" --paginate true
 
+To download attachments for a single feed use the command:
+
+    greenhouse download-attachments --type candidates_1
+
 For a full list of commands use:
 
     greenhouse --help

@@ -1,6 +1,7 @@
 
 const credentials = require('./credentials.json');
 const fs = require('fs');
+const https = require('https');
 const json2csv = require('json2csv').parse;
 const parse = require('parse-link-header');
 const requestPromise = require('request-promise');
@@ -85,6 +86,34 @@ exports.toJSON = function(path, data) {
         console.log('api.toJSON', path);
         resolve(path);
       }
+    });
+  });
+}
+
+exports.fromJSON = function(path) {
+  return new Promise((resolve, reject) => {
+    fs.readFile(path, (error, data) => {
+      if (error) {
+        reject(error);
+      } else {
+        console.log('api.fromJSON', path);
+        resolve(JSON.parse(data));
+      }
+    });
+  });
+}
+
+exports.download = function(filename, url) {
+  return new Promise((resolve, reject) => {
+    console.log('api.download', filename);
+    const file = fs.createWriteStream(filename);
+    https.get(url, function(response) {
+      response.pipe(file);
+      file.on('finish', () => {
+        file.close(resolve(file));
+      });
+    }).on('error', (error) => {
+      fs.unlink(filename, reject(error));
     });
   });
 }

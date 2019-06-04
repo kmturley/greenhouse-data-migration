@@ -53,7 +53,7 @@ function addDefaultParams(path) {
   if (!pathObj.query.per_page) {
     pathObj.query.per_page = 500;
   }
-  return url.format(pathObj);
+  return `${pathObj.pathname}?page=${pathObj.query.page}&per_page=${pathObj.query.per_page}`;
 }
 
 function download(paths, paginate) {
@@ -94,6 +94,38 @@ function save(responses) {
   });
 }
 
+function downloadAttachments(path) {
+  return new Promise((resolve, reject) => {
+    const promises = [];
+    console.log('downloadAttachments', path);
+    mkdirp(`./data/attachments/${path}`, (error) => {
+      api.fromJSON(`./data/${path}.json`).then((candidates) => {
+        candidates.forEach((candidate) => {
+          candidate.attachments.forEach((attachment) => {
+            promises.push(api.download(`./data/attachments/${path}/${attachment.filename}`, attachment.url));
+          });
+        });
+        Promise.all(promises).then((attachmentItems) => {
+          resolve(attachmentItems);
+        });
+      });
+    });
+  });
+}
+
+function downloadAttachmentsAll(fileItems) {
+  return new Promise((resolve, reject) => {
+    const promises = [];
+    fileItems.forEach((fileItem) => {
+      const path = fileItem.replace('data/', '').replace('.json', '');
+      promises.push(downloadAttachments(path));
+    });
+    Promise.all(promises).then((attachmentItems) => {
+      resolve(attachmentItems);
+    });
+  });
+}
+
 program
   .version(package.version)
   .arguments('<action>')
@@ -102,15 +134,25 @@ program
   .action((action) => {
     co(function* () {
       mkdirp('data', (error) => {
+        // const type = program.type ? program.type : yield prompt('Type: ');
+        const paginate = program.paginate === 'true' ? true : false;
+        const type = program.type;
         if (action === 'download') {
-          // const type = program.type ? program.type : yield prompt('Type: ');
-          const paginate = program.paginate === 'true' ? true : false;
-          const type = program.type;
           const urls = type === 'all' ? endpoints : [type];
           download(urls, paginate).then((urlItems) => {
             save(urlItems).then((fileItems) => {
-              success(`Urls: ${urlItems.length}, Saved: ${fileItems.length}`);
+              if (type === 'candidates') {
+                downloadAttachmentsAll(fileItems).then((attachmentItems) => {
+                  success(`Urls: ${urlItems.length}, Saved: ${fileItems.length}, Attachments: ${attachmentItems.length}`);
+                });
+              } else {
+                success(`Urls: ${urlItems.length}, Saved: ${fileItems.length}`);
+              }
             });
+          });
+        } else if (action === 'download-attachments') {
+          downloadAttachments(type).then((attachmentItems) => {
+            success(`Attachments: ${attachmentItems.length}`);
           });
         } else {
           failure(`Error command not recognized`);
