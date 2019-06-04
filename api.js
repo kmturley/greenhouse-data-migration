@@ -42,7 +42,8 @@ exports.getAllPages = function(url, responses) {
     if (response.headers && response.headers.link) {
       const link = parse(response.headers.link);
       if (link.next && link.next.url) {
-        return this.getAllPages(link.next.url, responses);
+        const nextUrl = link.next.url.replace(this.getAPI() + '/', '');
+        return this.getAllPages(nextUrl, responses);
       }
     }
     return responses;

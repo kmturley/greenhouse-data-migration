@@ -54,7 +54,6 @@ Types available (use 'all' to download all types in one go):
     jobs
     offers
     offices
-    prospect_pools
     rejection_reasons
     scheduled_interviews
     scorecards
@@ -73,7 +72,6 @@ If endpoints support it, you can add the paginate option to download additional 
     greenhouse download --type jobs --paginate true
     greenhouse download --type offers --paginate true
     greenhouse download --type offices --paginate true
-    greenhouse download --type prospect_pools --paginate true
     greenhouse download --type rejection_reasons --paginate true
     greenhouse download --type scheduled_interviews --paginate true
     greenhouse download --type scorecards --paginate true

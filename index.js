@@ -6,6 +6,7 @@ const mkdirp = require('mkdirp');
 const prompt = require('co-prompt');
 const program = require('commander');
 const slugify = require('slugify');
+const url = require('url');
 
 const api = require('./api.js');
 const package = require('./package.json');
@@ -44,24 +45,35 @@ function failure(msg) {
   process.exit(0);
 }
 
-function download(urls, paginate) {
+function addDefaultParams(path) {
+  const pathObj = url.parse(path, true);
+  if (!pathObj.query.page) {
+    pathObj.query.page = 1;
+  }
+  if (!pathObj.query.per_page) {
+    pathObj.query.per_page = 500;
+  }
+  return url.format(pathObj);
+}
+
+function download(paths, paginate) {
   return new Promise((resolve, reject) => {
     const promises = [];
-    urls.forEach((url) => {
+    paths.forEach((path) => {
       if (paginate === true) {
-        promises.push(api.getAllPages(url));
+        promises.push(api.getAllPages(addDefaultParams(path)));
       } else {
-        promises.push(api.get(url));
+        promises.push(api.get(addDefaultParams(path)));
       }
     });
-    Promise.all(promises).then((urlItems) => {
-      resolve(urlItems);
+    Promise.all(promises).then((pathItems) => {
+      resolve(pathItems);
     });
   });
 }
 
 function createFilename(name) {
-  return slugify(name.replace(api.getAPI(), '').replace('page=', '_').replace('per_page=500', '').replace('per_page=100', '').replace('?', '').replace('&', ''));
+  return slugify(name.replace(api.getAPI() + '/', '').replace('page=', '_').replace('per_page=500', '').replace('per_page=100', '').replace('?', '').replace('&', ''));
 }
 
 function save(responses) {
