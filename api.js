@@ -18,10 +18,10 @@ exports.getAPI = function() {
 }
 
 exports.get = function(url) {
-  console.log('api.get', url);
+  console.log('api.get', `${this.getAPI()}/${url}`);
   return requestPromise({
     method: 'GET',
-    uri: url,
+    uri: `${this.getAPI()}/${url}`,
     headers: {
       'Authorization': 'Basic ' + Buffer.from(token + ':').toString('base64')
     },

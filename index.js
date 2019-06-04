@@ -49,9 +49,9 @@ function download(urls, paginate) {
     const promises = [];
     urls.forEach((url) => {
       if (paginate === true) {
-        promises.push(api.getAllPages(`${api.getAPI()}/${url}`));
+        promises.push(api.getAllPages(url));
       } else {
-        promises.push(api.get(`${api.getAPI()}/${url}`));
+        promises.push(api.get(url));
       }
     });
     Promise.all(promises).then((urlItems) => {
