@@ -60,17 +60,19 @@ function download(urls, paginate) {
   });
 }
 
+function createFilename(name) {
+  return slugify(name.replace(api.getAPI(), '').replace('page=', '_').replace('per_page=500', '').replace('per_page=100', '').replace('?', '').replace('&', ''));
+}
+
 function save(responses) {
   return new Promise((resolve, reject) => {
     const promises = [];
     responses.forEach((response) => {
       if (response.body) {
-        const name = slugify(response.request.uri.href.replace(api.getAPI(), ''));
-        promises.push(api.toJSON(`data/${name}.json`, response.body));
+        promises.push(api.toJSON(`data/${createFilename(response.request.uri.href)}.json`, response.body));
       } else {
         response.forEach((page) => {
-          const name = slugify(page.url.replace(api.getAPI(), ''));
-          promises.push(api.toJSON(`data/${name}.json`, page.data));
+          promises.push(api.toJSON(`data/${createFilename(page.url)}.json`, page.data));
         });
       }
     });
@@ -93,7 +95,6 @@ program
           const paginate = program.paginate === 'true' ? true : false;
           const type = program.type;
           const urls = type === 'all' ? endpoints : [type];
-          console.log('paginate', paginate, typeof paginate);
           download(urls, paginate).then((urlItems) => {
             save(urlItems).then((fileItems) => {
               success(`Urls: ${urlItems.length}, Saved: ${fileItems.length}`);
