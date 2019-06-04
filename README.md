@@ -62,6 +62,27 @@ Types available (use 'all' to download all types in one go):
     users
     user_roles
 
+If endpoints support it, you can add the paginate option to download additional pages:
+
+    greenhouse download --type applications --paginate true
+    greenhouse download --type candidates --paginate true
+    greenhouse download --type departments --paginate true
+    greenhouse download --type email_templates --paginate true
+    greenhouse download --type job_posts --paginate true
+    greenhouse download --type job_stages --paginate true
+    greenhouse download --type jobs --paginate true
+    greenhouse download --type offers --paginate true
+    greenhouse download --type offices --paginate true
+    greenhouse download --type prospect_pools --paginate true
+    greenhouse download --type rejection_reasons --paginate true
+    greenhouse download --type scheduled_interviews --paginate true
+    greenhouse download --type scorecards --paginate true
+    greenhouse download --type sources --paginate true
+    greenhouse download --type users --paginate true
+
+If you hit rate limits, you can adjust per_page and page url params:
+
+    greenhouse download --type "applications?page=1&per_page=500" --paginate true
 
 For a full list of commands use:
 

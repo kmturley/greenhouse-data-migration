@@ -2,6 +2,7 @@
 const credentials = require('./credentials.json');
 const fs = require('fs');
 const json2csv = require('json2csv').parse;
+const parse = require('parse-link-header');
 const requestPromise = require('request-promise');
 
 const domain = credentials.domain || console.error('Please set your domain in credentials.json');
@@ -18,26 +19,47 @@ exports.getAPI = function() {
 
 exports.get = function(url) {
   console.log('api.get', url);
-  return requestPromise.get({
+  return requestPromise({
+    method: 'GET',
     uri: url,
     headers: {
       'Authorization': 'Basic ' + Buffer.from(token + ':').toString('base64')
     },
-    json: true
+    json: true,
+    resolveWithFullResponse: true,
   }).catch((error) => {
     console.error(error.options.uri, error.name, error.statusCode, error.message);
   });
 };
 
+exports.getAllPages = function(url, responses) {
+  return this.get(url).then((response) => {
+    if (!responses) { responses = []; }
+    responses.push({
+      url: url,
+      data: response.body
+    });
+    if (response.headers && response.headers.link) {
+      const link = parse(response.headers.link);
+      if (link.next && link.next.url) {
+        return this.getAllPages(link.next.url, responses);
+      }
+    }
+    return responses;
+  });
+};
+
 exports.post = function(url, params) {
   console.log('api.post', `${this.getAPI()}/${url}`, params);
-  return requestPromise.post({
+  return requestPromise({
+    method: 'POST',
     uri: `${this.getAPI()}/${url}`,
     headers: {
       'Authorization': 'Basic ' + Buffer.from(token + ':').toString('base64')
     },
     json: true,
-    body: params
+    body: params,
+    resolveWithFullResponse: true,
   }).catch((error) => {
     console.error(error.options.uri, error.name, error.statusCode, error.message);
   });

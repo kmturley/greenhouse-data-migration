@@ -5,6 +5,7 @@ const co = require('co');
 const mkdirp = require('mkdirp');
 const prompt = require('co-prompt');
 const program = require('commander');
+const slugify = require('slugify');
 
 const api = require('./api.js');
 const package = require('./package.json');
@@ -43,11 +44,15 @@ function failure(msg) {
   process.exit(0);
 }
 
-function download(urls) {
+function download(urls, paginate) {
   return new Promise((resolve, reject) => {
     const promises = [];
     urls.forEach((url) => {
-      promises.push(api.get(`${api.getAPI()}/${url}/`));
+      if (paginate === true) {
+        promises.push(api.getAllPages(`${api.getAPI()}/${url}`));
+      } else {
+        promises.push(api.get(`${api.getAPI()}/${url}`));
+      }
     });
     Promise.all(promises).then((urlItems) => {
       resolve(urlItems);
@@ -55,16 +60,22 @@ function download(urls) {
   });
 }
 
-function save(urls, urlItems) {
+function save(responses) {
   return new Promise((resolve, reject) => {
     const promises = [];
-    urlItems.forEach((urlItem, urlItemIndex) => {
-      const url = urls[urlItemIndex];
-      const slug = url.replace('/', '-');
-      promises.push(api.toJSON(`data/${slug}.json`, urlItem));
+    responses.forEach((response) => {
+      if (response.body) {
+        const name = slugify(response.request.uri.href.replace(api.getAPI(), ''));
+        promises.push(api.toJSON(`data/${name}.json`, response.body));
+      } else {
+        response.forEach((page) => {
+          const name = slugify(page.url.replace(api.getAPI(), ''));
+          promises.push(api.toJSON(`data/${name}.json`, page.data));
+        });
+      }
     });
-    Promise.all(promises).then((fileItems) => {
-      resolve(fileItems);
+    Promise.all(promises).then((urlItems) => {
+      resolve(urlItems);
     });
   });
 }
@@ -73,16 +84,19 @@ program
   .version(package.version)
   .arguments('<action>')
   .option('-t, --type <boolean>', 'Type')
+  .option('-p, --paginate <boolean>', 'Paginate')
   .action((action) => {
     co(function* () {
       mkdirp('data', (error) => {
         if (action === 'download') {
           // const type = program.type ? program.type : yield prompt('Type: ');
+          const paginate = program.paginate === 'true' ? true : false;
           const type = program.type;
           const urls = type === 'all' ? endpoints : [type];
-          download(urls).then((urlItems) => {
-            save(urls, urlItems).then((fileItems) => {
-              success(`Downloaded: ${urlItems.length}, Saved: ${fileItems.length}`);
+          console.log('paginate', paginate, typeof paginate);
+          download(urls, paginate).then((urlItems) => {
+            save(urlItems).then((fileItems) => {
+              success(`Urls: ${urlItems.length}, Saved: ${fileItems.length}`);
             });
           });
         } else {
