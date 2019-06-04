@@ -107,13 +107,20 @@ exports.download = function(filename, url) {
   return new Promise((resolve, reject) => {
     console.log('api.download', filename);
     const file = fs.createWriteStream(filename);
-    https.get(url, function(response) {
+    https.get(url, (response) => {
       response.pipe(file);
       file.on('finish', () => {
-        file.close(resolve(file));
+        file.close();
+        resolve(file);
       });
-    }).on('error', (error) => {
-      fs.unlink(filename, reject(error));
+    }).on('error', () => {
+      fs.unlink(filename, (error) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(file);
+        }
+      });
     });
   });
 }
