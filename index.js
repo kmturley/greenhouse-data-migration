@@ -101,8 +101,9 @@ function downloadAttachments(path) {
     mkdirp(`./data/attachments/${path}`, (error) => {
       api.fromJSON(`./data/${path}.json`).then((candidates) => {
         candidates.forEach((candidate) => {
-          candidate.attachments.forEach((attachment) => {
-            promises.push(api.download(`./data/attachments/${path}/${attachment.filename}`, attachment.url));
+          candidate.attachments.forEach((attachment, attachmentIndex) => {
+            const ext = attachment.filename.split('.').pop();
+            promises.push(api.download(`./data/attachments/${path}/${candidate.id}_${attachmentIndex + 1}.${ext}`, attachment.url));
           });
         });
         Promise.all(promises).then((attachmentItems) => {
