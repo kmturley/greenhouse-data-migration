@@ -85,6 +85,7 @@ If you hit rate limits, you can adjust per_page and page url params:
 To download attachments for a single feed use the command:
 
     greenhouse download-attachments --type candidates_1
+    greenhouse download-activities --type candidates_1
 
 For a full list of commands use:
 

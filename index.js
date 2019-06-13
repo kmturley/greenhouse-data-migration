@@ -127,6 +127,26 @@ function downloadAttachmentsAll(fileItems) {
   });
 }
 
+function getActivities(path) {
+  return new Promise((resolve, reject) => {
+    const promises = [];
+    console.log('downloadAttachments', path);
+    mkdirp(`./data/activities/${path}`, (error) => {
+      api.fromJSON(`./data/${path}.json`).then((candidates) => {
+        candidates.forEach((candidate) => {
+          promises.push(api.get(`candidates/${candidate.id}/activity_feed`).then((data) => {
+            return api.toJSON(`./data/activities/${path}/${candidate.id}.json`, data);
+          }));
+        });
+        Promise.all(promises).then((attachmentItems) => {
+          resolve(attachmentItems);
+        });
+      });
+    });
+  });
+}
+
+
 program
   .version(package.version)
   .arguments('<action>')
@@ -142,18 +162,16 @@ program
           const urls = type === 'all' ? endpoints : [type];
           download(urls, paginate).then((urlItems) => {
             save(urlItems).then((fileItems) => {
-              if (type === 'candidates') {
-                downloadAttachmentsAll(fileItems).then((attachmentItems) => {
-                  success(`Urls: ${urlItems.length}, Saved: ${fileItems.length}, Attachments: ${attachmentItems.length}`);
-                });
-              } else {
-                success(`Urls: ${urlItems.length}, Saved: ${fileItems.length}`);
-              }
+              success(`Urls: ${urlItems.length}, Saved: ${fileItems.length}`);
             });
           });
         } else if (action === 'download-attachments') {
           downloadAttachments(type).then((attachmentItems) => {
             success(`Attachments: ${attachmentItems.length}`);
+          });
+        } else if (action === 'download-activities') {
+          getActivities(type).then((activityItems) => {
+            success(`Activities: ${activityItems.length}`);
           });
         } else {
           failure(`Error command not recognized`);
