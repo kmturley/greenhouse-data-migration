@@ -78,7 +78,7 @@ async function init(action) {
     const candidates = await file.loadFileJson(`./${FOLDER}/${type}.json`);
     for (const candidate of candidates) {
       const json = await api.getJSON(`candidates/${candidate.id}/activity_feed`);
-      await file.createFileJson(`${FOLDER}/activities/${candidate.id}.json`, json);
+      await file.createFileJson(`${FOLDER}/activities/${type}/${candidate.id}.json`, json);
     }
   } else {
     failure(`Error command not recognized`);
