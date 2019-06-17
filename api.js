@@ -1,126 +1,88 @@
-
 const credentials = require('./credentials.json');
-const fs = require('fs');
-const https = require('https');
-const json2csv = require('json2csv').parse;
 const parse = require('parse-link-header');
-const requestPromise = require('request-promise');
+const request = require('sync-request');
+const url = require('url');
 
 const domain = credentials.domain || console.error('Please set your domain in credentials.json');
 const token = credentials.token || console.error('Please set your token in credentials.json');
 const root = credentials.root || console.error('Please set your API root in credentials.json');
-
-exports.getDomain = function() {
-  return `https://${domain}`;
-}
-
-exports.getAPI = function() {
-  return `https://${domain}/${root}`;
-}
-
-exports.get = function(url) {
-  console.log('api.get', `${this.getAPI()}/${url}`);
-  return requestPromise({
-    method: 'GET',
-    uri: `${this.getAPI()}/${url}`,
-    headers: {
-      'Authorization': 'Basic ' + Buffer.from(token + ':').toString('base64')
-    },
-    json: true,
-    resolveWithFullResponse: true,
-  }).catch((error) => {
-    console.error(error.options.uri, error.name, error.statusCode, error.message);
-  });
-};
-
-exports.getAllPages = function(url, responses) {
-  return this.get(url).then((response) => {
-    if (!responses) { responses = []; }
-    responses.push({
-      url: url,
-      data: response.body
-    });
-    if (response.headers && response.headers.link) {
-      const link = parse(response.headers.link);
-      if (link.next && link.next.url) {
-        const nextUrl = link.next.url.replace(this.getAPI() + '/', '');
-        return this.getAllPages(nextUrl, responses);
-      }
-    }
-    return responses;
-  });
-};
-
-exports.post = function(url, params) {
-  console.log('api.post', `${this.getAPI()}/${url}`, params);
-  return requestPromise({
-    method: 'POST',
-    uri: `${this.getAPI()}/${url}`,
-    headers: {
-      'Authorization': 'Basic ' + Buffer.from(token + ':').toString('base64')
-    },
-    json: true,
-    body: params,
-    resolveWithFullResponse: true,
-  }).catch((error) => {
-    console.error(error.options.uri, error.name, error.statusCode, error.message);
-  });
-};
-
-exports.toCSV = function(dataset) {
-  var headers = Object.keys(dataset[0]);
-  try {
-    console.log('api.toCSV', dataset.length);
-    return json2csv(dataset, { headers });
-  } catch (error) {
-    console.error(error);
+const options = {
+  headers: {
+    'Authorization': 'Basic ' + Buffer.from(token + ':').toString('base64')
   }
 };
 
-exports.toJSON = function(path, data) {
-  return new Promise((resolve, reject) => {
-    fs.writeFile(path, JSON.stringify(data, null, 4), 'utf8', (error) => {
-      if (error) {
-        reject(error);
-      } else {
-        console.log('api.toJSON', path);
-        resolve(path);
-      }
-    });
-  });
+function getDomain() {
+  return `https://${domain}`;
 }
 
-exports.fromJSON = function(path) {
-  return new Promise((resolve, reject) => {
-    fs.readFile(path, (error, data) => {
-      if (error) {
-        reject(error);
-      } else {
-        console.log('api.fromJSON', path);
-        resolve(JSON.parse(data));
-      }
-    });
-  });
+function getAPI() {
+  return `https://${domain}/${root}`;
 }
 
-exports.download = function(filename, url) {
-  return new Promise((resolve, reject) => {
-    console.log('api.download', filename);
-    const file = fs.createWriteStream(filename);
-    https.get(url, (response) => {
-      response.pipe(file);
-      file.on('finish', () => {
-        file.close();
-        resolve(file);
-      });
-    }).on('error', () => {
-      fs.unlink(filename, (error) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(file);
-        }
-      });
-    });
-  });
+function addDefaultParams(path) {
+  const obj = url.parse(path, true);
+  if (!obj.query.page) {
+    obj.query.page = 1;
+  }
+  if (!obj.query.per_page) {
+    obj.query.per_page = 500;
+  }
+  return `${obj.pathname}?page=${obj.query.page}&per_page=${obj.query.per_page}`;
 }
+
+async function get(url, auth) {
+  console.log('api.get', url);
+  return await request('GET', url, auth === false ? null : options).getBody('utf8');
+};
+
+async function getRaw(url, auth) {
+  console.log('api.getRaw', url);
+  return await request('GET', url, auth === false ? null : options).body;
+};
+
+async function getJSON(url) {
+  console.log('api.getJSON', `${this.getAPI()}/${url}`);
+  return JSON.parse(await get(`${this.getAPI()}/${url}`));
+};
+
+async function getJSONPage(url) {
+  console.log('api.getJSONPage', url);
+  return {
+    url: `${this.getAPI()}/${url}`,
+    data: await this.getJSON(url)
+  };
+};
+
+async function getJSONPages(url, responses) {
+  console.log('api.getJSONPages', url);
+  const response = request('GET', `${this.getAPI()}/${url}`, {
+    headers: {
+      'Authorization': 'Basic ' + Buffer.from(token + ':').toString('base64')
+    }
+  });
+  if (!responses) {
+    responses = [];
+  }
+  responses.push({
+    url: url,
+    data: JSON.parse(response.getBody('utf8'))
+  });
+  if (response.headers && response.headers.link) {
+    const link = parse(response.headers.link);
+    if (link.next && link.next.url) {
+      const nextUrl = link.next.url.replace(this.getAPI() + '/', '');
+      return await this.getJSONPages(nextUrl, responses);
+    }
+  }
+  return responses;
+};
+
+module.exports.getDomain = getDomain;
+module.exports.getAPI = getAPI;
+module.exports.addDefaultParams = addDefaultParams;
+module.exports.get = get;
+module.exports.getRaw = getRaw;
+module.exports.getJSON = getJSON;
+module.exports.getJSONPage = getJSONPage;
+module.exports.getJSONPages = getJSONPages;

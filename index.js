@@ -1,17 +1,14 @@
 #!/usr/bin/env node
 
 const chalk = require('chalk');
-const co = require('co');
-const mkdirp = require('mkdirp');
-const prompt = require('co-prompt');
 const program = require('commander');
-const slugify = require('slugify');
-const url = require('url');
 
 const api = require('./api.js');
+const file = require('./file.js');
 const package = require('./package.json');
 
-const endpoints = [
+const FOLDER = 'data';
+const ENDPOINTS = [
   'applications',
   'candidates',
   'close_reasons',
@@ -45,138 +42,54 @@ function failure(msg) {
   process.exit(0);
 }
 
-function addDefaultParams(path) {
-  const pathObj = url.parse(path, true);
-  if (!pathObj.query.page) {
-    pathObj.query.page = 1;
-  }
-  if (!pathObj.query.per_page) {
-    pathObj.query.per_page = 500;
-  }
-  return `${pathObj.pathname}?page=${pathObj.query.page}&per_page=${pathObj.query.per_page}`;
-}
-
-function download(paths, paginate) {
-  return new Promise((resolve, reject) => {
-    const promises = [];
-    paths.forEach((path) => {
+async function init(action) {
+  const paginate = program.paginate === 'true' ? true : false;
+  const type = program.type;
+  await file.createDirectory(FOLDER);
+  if (action === 'download') {
+    const urls = type === 'all' ? ENDPOINTS : [type];
+    for (const url of urls) {
       if (paginate === true) {
-        promises.push(api.getAllPages(addDefaultParams(path)));
+        pages = await api.getJSONPages(api.addDefaultParams(url));
       } else {
-        promises.push(api.get(addDefaultParams(path)));
+        pages = [await api.getJSONPage(api.addDefaultParams(url))];
       }
-    });
-    Promise.all(promises).then((pathItems) => {
-      resolve(pathItems);
-    });
-  });
-}
-
-function createFilename(name) {
-  return slugify(name.replace(api.getAPI() + '/', '').replace('page=', '_').replace('per_page=500', '').replace('per_page=100', '').replace('?', '').replace('&', ''));
-}
-
-function save(responses) {
-  return new Promise((resolve, reject) => {
-    const promises = [];
-    responses.forEach((response) => {
-      if (response.body) {
-        promises.push(api.toJSON(`data/${createFilename(response.request.uri.href)}.json`, response.body));
-      } else {
-        response.forEach((page) => {
-          promises.push(api.toJSON(`data/${createFilename(page.url)}.json`, page.data));
-        });
+      for (const page of pages) {
+        await file.createFileJson(`${FOLDER}/${file.createFilename(page.url)}.json`, page.data);
       }
-    });
-    Promise.all(promises).then((urlItems) => {
-      resolve(urlItems);
-    });
-  });
+      success(`Urls: ${urls.length}, Pages: ${pages.length}`);
+    }
+  } else if (action === 'download-attachments') {
+    await file.createDirectory(`${FOLDER}/attachments`);
+    await file.createDirectory(`${FOLDER}/attachments/${type}`);
+    const candidates = await file.loadFileJson(`./${FOLDER}/${type}.json`);
+    for (const candidate of candidates) {
+      let attachmentIndex = 0;
+      for (const attachment of candidate.attachments) {
+        const ext = attachment.filename.split('.').pop();
+        const data = await api.getRaw(attachment.url, false);
+        await file.createFile(`${FOLDER}/attachments/${type}/${candidate.id}_${attachmentIndex + 1}.${ext}`, data);
+        attachmentIndex += 1;
+      }
+    }
+  } else if (action === 'download-activities') {
+    await file.createDirectory(`${FOLDER}/activities`);
+    await file.createDirectory(`${FOLDER}/activities/${type}`);
+    const candidates = await file.loadFileJson(`./${FOLDER}/${type}.json`);
+    for (const candidate of candidates) {
+      const json = await api.getJSON(`candidates/${candidate.id}/activity_feed`);
+      await file.createFileJson(`${FOLDER}/activities/${type}/${candidate.id}.json`, json);
+    }
+  } else {
+    failure(`Error command not recognized`);
+  }
+  return true;
 }
-
-function downloadAttachments(path) {
-  return new Promise((resolve, reject) => {
-    const promises = [];
-    console.log('downloadAttachments', path);
-    mkdirp(`./data/attachments/${path}`, (error) => {
-      api.fromJSON(`./data/${path}.json`).then((candidates) => {
-        candidates.forEach((candidate) => {
-          candidate.attachments.forEach((attachment, attachmentIndex) => {
-            const ext = attachment.filename.split('.').pop();
-            promises.push(api.download(`./data/attachments/${path}/${candidate.id}_${attachmentIndex + 1}.${ext}`, attachment.url));
-          });
-        });
-        Promise.all(promises).then((attachmentItems) => {
-          resolve(attachmentItems);
-        });
-      });
-    });
-  });
-}
-
-function downloadAttachmentsAll(fileItems) {
-  return new Promise((resolve, reject) => {
-    const promises = [];
-    fileItems.forEach((fileItem) => {
-      const path = fileItem.replace('data/', '').replace('.json', '');
-      promises.push(downloadAttachments(path));
-    });
-    Promise.all(promises).then((attachmentItems) => {
-      resolve(attachmentItems);
-    });
-  });
-}
-
-function getActivities(path) {
-  return new Promise((resolve, reject) => {
-    const promises = [];
-    console.log('downloadAttachments', path);
-    mkdirp(`./data/activities/${path}`, (error) => {
-      api.fromJSON(`./data/${path}.json`).then((candidates) => {
-        candidates.forEach((candidate) => {
-          promises.push(api.get(`candidates/${candidate.id}/activity_feed`).then((data) => {
-            return api.toJSON(`./data/activities/${path}/${candidate.id}.json`, data);
-          }));
-        });
-        Promise.all(promises).then((attachmentItems) => {
-          resolve(attachmentItems);
-        });
-      });
-    });
-  });
-}
-
 
 program
   .version(package.version)
   .arguments('<action>')
   .option('-t, --type <boolean>', 'Type')
   .option('-p, --paginate <boolean>', 'Paginate')
-  .action((action) => {
-    co(function* () {
-      mkdirp('data', (error) => {
-        // const type = program.type ? program.type : yield prompt('Type: ');
-        const paginate = program.paginate === 'true' ? true : false;
-        const type = program.type;
-        if (action === 'download') {
-          const urls = type === 'all' ? endpoints : [type];
-          download(urls, paginate).then((urlItems) => {
-            save(urlItems).then((fileItems) => {
-              success(`Urls: ${urlItems.length}, Saved: ${fileItems.length}`);
-            });
-          });
-        } else if (action === 'download-attachments') {
-          downloadAttachments(type).then((attachmentItems) => {
-            success(`Attachments: ${attachmentItems.length}`);
-          });
-        } else if (action === 'download-activities') {
-          getActivities(type).then((activityItems) => {
-            success(`Activities: ${activityItems.length}`);
-          });
-        } else {
-          failure(`Error command not recognized`);
-        }
-      });
-    });
-  })
+  .action(init)
   .parse(process.argv);
